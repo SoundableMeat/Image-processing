@@ -3,15 +3,115 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.io as sio
 import scipy as sp
+from scipy.signal import convolve2d
+
+plt.rcParams['image.cmap'] = 'gray'
+
+def arit_mean(IM,mask_size):
+    mask = np.ones((mask_size,mask_size))/mask_size**2
+
+    blurred_IM = convolve2d(IM,mask)
+
+    blurred_IM = blurred_IM.astype(np.uint8)
+
+    return blurred_IM
+
+def geom_mean(IM,mask_size):
+    padding_size = int(mask_size/2)
+
+    IM_size = np.shape(IM)
+    x_size = IM_size[0]+2*padding_size
+    y_size = IM_size[1]+2*padding_size
+
+    padded_IM = np.zeros((x_size,y_size))
+    padded_IM[padding_size:IM.shape[0]+padding_size,padding_size:IM.shape[1]+padding_size] = IM
+
+    new_IM = np.zeros_like(IM)
+
+    for i in range(padding_size,padding_size+IM_size[0]):
+        for j in range(padding_size,padding_size+IM_size[1]):
+            tmp_arr = padded_IM[i-padding_size:i+padding_size+1,j-padding_size:j+padding_size+1]
+            mean = (np.prod(tmp_arr))**(1/(mask_size**2))
+            new_IM[i-padding_size][j-padding_size] = mean
+
+    return new_IM
+
+def harm_mean(IM,mask_size):
+    padding_size = int(mask_size/2)
+
+    IM_size = np.shape(IM)
+    x_size = IM_size[0]+2*padding_size
+    y_size = IM_size[1]+2*padding_size
+
+    padded_IM = np.zeros((x_size,y_size))
+    padded_IM[padding_size:IM.shape[0]+padding_size,padding_size:IM.shape[1]+padding_size] = IM
+
+    new_IM = np.zeros_like(IM)
+
+    for i in range(padding_size,padding_size+IM_size[0]):
+        for j in range(padding_size,padding_size+IM_size[1]):
+            tmp_arr = padded_IM[i-padding_size:i+padding_size+1,j-padding_size:j+padding_size+1]
+            mean = mask_size**2/(np.sum(1/tmp_arr))
+            new_IM[i-padding_size][j-padding_size] = mean
+
+    return new_IM
+
+
+def remove_last_digits(IM):
+    x,y=np.shape(IM)
+
+    newIM = np.zeros_like(IM)
+    for i in range(x):
+        for j in range(y):
+            tmp = format(IM[i,j], '#010b')
+            first = '0b'
+            mid = tmp[2:8]
+            third = '00'
+            str = first + mid + third
+            result = int(str,2)
+            newIM[i,j]=result
+
+    return newIM
+
+def imageencrypt(IM,encrypt):
+
+    if encrypt:
+        freq = np.fft.fftshift(np.fft.fft2(IM))
+
+        filt = np.random.rand(np.shape(freq)[0],np.shape(freq)[1])*np.random.rand(np.shape(freq)[0],np.shape(freq)[1])*np.random.rand(np.shape(freq)[0],np.shape(freq)[1])\
+        *np.random.rand(np.shape(freq)[0],np.shape(freq)[1])*np.random.rand(np.shape(freq)[0],np.shape(freq)[1])*np.random.rand(np.shape(freq)[0],np.shape(freq)[1])\
+        *np.random.rand(np.shape(freq)[0],np.shape(freq)[1])*np.random.rand(np.shape(freq)[0],np.shape(freq)[1])*np.random.rand(np.shape(freq)[0],np.shape(freq)[1])
+
+        newIM = np.concatenate((np.fft.ifft2(freq*filt),filt),axis=0)
+    else:
+        freq = np.fft.fft2(IM[:int(len(IM)/2)])
+        filt = IM[int(len(IM)/2):]
+
+        newIM = np.fft.ifft2(freq/filt)
+
+    return newIM
 
 def convert_grayscale(imname):
+    """Converts rgb images to grayscale
+
+    Parameters
+    ----------
+    imname : string
+        Contains the name and location of the image
+
+    Returns
+    -------
+    numpy array
+        Returnes array containing the pixel values of the image.
+
+    """
     pil_im = Image.open(imname).convert('LA')
     IM = np.array(list(pil_im.getdata(band=0)), float)
     IM.shape = (pil_im.size[1], pil_im.size[0])
 
     return IM
 
-def gausshigh(IM,D0):
+def gaussfilter(IM,D0,high):
 
     x,y = np.shape(IM)
 
@@ -22,7 +122,10 @@ def gausshigh(IM,D0):
         for j in range(len(v)):
             D[i][j]=np.sqrt(u[i]**2+v[j]**2)
 
-    H = 1-np.exp(-D**2/(2*D0**2))
+    if high:
+        H = 1-np.exp(-D**2/(2*D0**2))
+    else:
+        H = np.exp(-D**2/(2*D0**2))
 
     freq_IM = np.fft.fftshift(np.fft.fft2(IM))
 
@@ -49,6 +152,34 @@ def median_filter(IM,size):
             tmp_arr = padded_IM[i-padding_size:i+padding_size+1,j-padding_size:j+padding_size+1]
             median = np.median(tmp_arr)
             new_IM[i-padding_size][j-padding_size] = median
+
+    return new_IM
+
+def harmonic_mean(IM,size):
+
+    padding_size = int((size-1)/2)
+    IM_size = np.shape(IM)
+    x_size = IM_size[0]+2*padding_size
+    y_size = IM_size[1]+2*padding_size
+
+    padded_IM = np.zeros((x_size,y_size))
+
+    padded_IM[padding_size:IM.shape[0]+padding_size,padding_size:IM.shape[1]+padding_size] = IM
+    new_IM = np.zeros_like(IM)
+
+    for i in range(padding_size,padding_size+IM_size[0]):
+        for j in range(padding_size,padding_size+IM_size[1]):
+            tmp_arr = np.array(padded_IM[i-padding_size:i+padding_size+1,j-padding_size:j+padding_size+1])
+            tmp=0
+
+            for arr in tmp_arr:
+                for num in arr:
+                    if num != 0:
+                        tmp += 1/num
+
+            tmp = size**2/tmp
+
+            new_IM[i-padding_size][j-padding_size] = tmp
 
     return new_IM
 
@@ -142,3 +273,13 @@ def gamma_transform(c,r_in,gamma):
     s_out = convert_array_L(s,255)
 
     return s_out
+
+def histogram(IM):
+    tmp=[]
+    a=np.unique(IM)
+    for i in range(0,256):
+        if i not in a:
+            tmp.append(i)
+    hist = np.append(IM,tmp)
+
+    return hist
