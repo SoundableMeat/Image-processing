@@ -127,13 +127,13 @@ def gaussfilter(IM,D0,high):
     else:
         H = np.exp(-D**2/(2*D0**2))
 
-    freq_IM = np.fft.fftshift(np.fft.fft2(IM))
+    #freq_IM = np.fft.fftshift(np.fft.fft2(IM))
 
-    filtered_freq = freq_IM*H
+    filtered_freq = IM*H #freq_IM*H
 
-    filtered_IM = np.abs(np.fft.ifft2(filtered_freq))
+    #filtered_IM = np.abs(np.fft.ifft2(filtered_freq))
 
-    return filtered_IM
+    return filtered_freq
 
 def median_filter(IM,size):
 
@@ -283,3 +283,105 @@ def histogram(IM):
     hist = np.append(IM,tmp)
 
     return hist
+
+def reshape_image(IM):
+    z,x,y = np.shape(IM)
+
+    newIM = np.zeros((x,y,z))
+
+    for i in range(x):
+        for j in range(y):
+            for k in range(z):
+                newIM[i,j,k] = IM[k,i,j]
+
+    newIM = newIM.astype(np.uint8)
+
+    return newIM
+
+def hide_picture(toppic,hidden):
+    x,y,z = np.shape(hidden)
+    hidden_array = np.zeros((3*x,y,z))
+    for i in range(x):
+        for j in range(y):
+            for k in range(z):
+                tmp = format(hidden[i,j,k], '#010b')
+                hidden_array[3*i,j,k] = tmp[2:4]
+                hidden_array[3*i+1,j,k] = tmp[4:6]
+                hidden_array[3*i+2,j,k] = tmp[6:8]
+
+
+    x,y,z = np.shape(hidden_array)
+    x1,y1,z1 = np.shape(toppic)
+    newtop = np.zeros_like(toppic)
+    for i in range(x1):
+        for j in range(y1):
+            for k in range(z1):
+                tmp = format(toppic[i,j,k], '#010b')
+                first = '0b'
+                mid = tmp[2:8]
+                if i<x and j<y:
+                    third = str(int(hidden_array[i,j,k]))
+                    if third == '0':
+                        third = '00'
+                    if third == '1':
+                        third = '01'
+                else:
+                    third = '00'
+                string = first + mid + third
+                result = int(string,2)
+                newtop[i,j,k]=result
+
+    return newtop
+
+def find_picture(IM):
+    x,y,z = np.shape(IM)
+
+    new_arr = np.zeros_like(IM)
+    for k in range(z):
+        for i in range(x):
+            count = 0
+            for j in range(y):
+                tmp = format(IM[i,j,k], '#010b')
+                hidden = tmp[8:]
+                new_arr[i,j,k] = hidden
+
+    new_IM = np.zeros((x,y,z))
+    for i in range(int(x/3)):
+        for j in range(j):
+            for k in range(z):
+                first = str(new_arr[3*i,j,k])
+                if first == '0':
+                    first = '00'
+                elif first == '1':
+                    first = '01'
+                second = str(new_arr[3*i+1,j,k])
+                if second == '0':
+                    second = '00'
+                elif second == '1':
+                    second = '01'
+                third = str(new_arr[3*i+2,j,k])
+                if third == '0':
+                    third = '00'
+                elif third == '1':
+                    third = '01'
+                tmp = '0b'+first+second+third+'00'
+                result = int(tmp,2)
+                new_IM[i,j,k] = result
+
+
+    x,y,z = np.shape(new_IM)
+    for i in range(1,x-1):
+        tmp = new_IM[i-1:i+2,4:7]
+        if np.sum(tmp)==0:
+            break
+    for j in range(1,y-1):
+        tmp = new_IM[4:7,j-1:j+2]
+        if np.sum(tmp)==0:
+            break
+
+    newIM = new_IM[:i,:j]
+
+
+    newIM = np.transpose(newIM,(1,0,2))
+
+    return newIM
