@@ -7,6 +7,47 @@ from scipy.signal import convolve2d
 
 plt.rcParams['image.cmap'] = 'gray'
 
+def alpha_trimmed_mean(IM,mask_size,d):
+    """Applying a alpha trimmed mean filter to image
+
+    Parameters
+    ----------
+    IM : numpy array
+        Containing the original image
+    mask_size : integer
+        Size of the kernel
+    d : integer
+        the alpha trim constant
+
+    Returns
+    -------
+    numpy array
+        Containing the filtered image
+
+    """
+    padding_size = int(mask_size/2)
+
+    IM_size = np.shape(IM)
+    x_size = IM_size[0]+2*padding_size
+    y_size = IM_size[1]+2*padding_size
+
+    padded_IM = np.zeros((x_size,y_size))
+    padded_IM[padding_size:IM.shape[0]+padding_size,padding_size:IM.shape[1]+padding_size] = IM
+
+    new_IM = np.zeros_like(IM)
+
+    for i in range(padding_size,padding_size+IM_size[0]):
+        for j in range(padding_size,padding_size+IM_size[1]):
+            tmp_arr = padded_IM[i-padding_size:i+padding_size+1,j-padding_size:j+padding_size+1]
+
+            tmp = np.sort(tmp_arr,axis=None)
+            tmp = tmp[int(d/2):len(tmp)-int(d/2)]
+
+            mean = 1/(mask_size**2-d)*np.sum(tmp)
+            new_IM[i-padding_size][j-padding_size] = mean
+
+    return new_IM
+
 def arit_mean(IM,mask_size):
     """Applying a harmonic mean filter to image
 
@@ -413,12 +454,12 @@ def histogram(IM):
         Containes the hisogram if the image
 
     """
-    tmp=[]
-    a=np.unique(IM)
-    for i in range(0,256):
-        if i not in a:
-            tmp.append(i)
-    hist = np.append(IM,tmp)
+    IM = np.ndarray.flatten(IM).astype(np.uint8)
+    MN = len(IM)
+    hist = np.zeros(256)
+    for i in range(40,256):
+        tmp = len(np.where(IM==i)[0])
+        hist[i] = tmp/MN
 
     return hist
 
